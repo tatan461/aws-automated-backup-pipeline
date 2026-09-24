@@ -187,7 +187,6 @@ terraform validate
 ├── docs/
 │   ├── architecture.md
 │   ├── architecture.png
-│   ├── architecture.drawio
 │   ├── cost-model.md
 │   └── restore-runbook.md
 ├── examples/
