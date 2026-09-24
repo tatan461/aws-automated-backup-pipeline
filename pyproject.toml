@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aws-automated-backup-pipeline"
+version = "0.1.0"
+description = "A cost-conscious AWS backup and restore pipeline built with Python and Boto3."
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.35,<2.0"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0,<9.0"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
