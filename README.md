@@ -19,6 +19,25 @@
 
 ---
 
+## Contents
+
+- [Overview](#overview)
+- [Why this project](#why-this-project)
+- [Architecture](#architecture)
+- [Features](#features)
+- [Technology stack](#technology-stack)
+- [Security and operational notes](#security-and-operational-notes)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Deployment](#deployment)
+- [Usage](#usage)
+- [Testing](#testing)
+- [Project structure](#project-structure)
+- [Documentation](#documentation)
+- [Related project](#related-project)
+- [Author](#author)
+- [License](#license)
+
 ## Overview
 
 This project implements a practical backup and disaster-recovery workflow using Amazon S3, AWS KMS, IAM, STS temporary credentials, Python, and Terraform.
@@ -52,25 +71,44 @@ This project explores the engineering decisions required to build a small but se
 
 ### Flow summary
 
+#### Upload
+
 ```text
-Local source directory
-        |
-        v
-Python CLI creates tar.gz archive
-        |
-        v
-Upload role obtains temporary STS credentials
-        |
-        v
-Amazon S3 stores the object with SSE-KMS
-        |
-        v
-Restore role reads and decrypts the object
-        |
-        v
-Python CLI extracts and verifies SHA-256
-        |
-        v
+Local directory
+      │
+      ▼
+Python CLI
+Creates tar.gz archive
+      │
+      ▼
+Upload role
+Temporary STS credentials
+      │
+      │ PutObject
+      ▼
+Amazon S3
+SSE-KMS encrypted backup
+      │
+      └──────────────► AWS KMS
+                       Encryption key
+```
+
+#### Restore
+
+```text
+Amazon S3
+Encrypted backup object
+      │
+      │ GetObject + decrypt
+      ▼
+Restore role
+Read and decrypt access
+      │
+      ▼
+Python CLI
+Extracts and verifies SHA-256
+      │
+      ▼
 Restored files
 ```
 
@@ -88,7 +126,7 @@ Restored files
 - Terraform-managed infrastructure.
 - Unit tests for backup and storage operations.
 
-## Main components
+## Technology stack
 
 | Component | Purpose |
 |---|---|
@@ -174,6 +212,8 @@ terraform plan -var-file="terraform.tfvars"
 terraform apply -var-file="terraform.tfvars"
 ```
 
+Review the Terraform plan before applying it.
+
 Never commit:
 
 ```text
@@ -229,14 +269,7 @@ terraform fmt -check
 terraform validate
 ```
 
-The test suite covers backup creation and S3 storage operations. Recommended additional test cases include:
-
-- Missing input files.
-- S3 permission errors.
-- Empty or corrupted objects.
-- SHA-256 mismatches.
-- Invalid configuration.
-- Failed download or restore operations.
+Integration tests should be isolated from unit tests to avoid unexpected AWS usage and charges.
 
 ## Project structure
 
