@@ -2,7 +2,7 @@
 
 # AWS Automated Backup Pipeline
 
-**A secure, encrypted, and integrity-verified backup and restore workflow built with AWS, Python, and Terraform.**
+**Secure, encrypted, and integrity-verified backup and restore workflow built with AWS, Python, and Terraform.**
 
 [Architecture](#architecture) · [Features](#features) · [Deployment](#deployment) · [Testing](#testing)
 
@@ -11,117 +11,48 @@
 ![Python](https://img.shields.io/badge/Runtime-Python-3776AB?logo=python&logoColor=white)
 ![Boto3](https://img.shields.io/badge/AWS%20SDK-Boto3-FF9900?logo=amazonaws&logoColor=white)
 ![Security](https://img.shields.io/badge/Encryption-SSE--KMS-DC3545)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
 </div>
 
 > A Terraform-managed AWS backup workflow that packages local data, stores it in encrypted Amazon S3, and verifies integrity after restoration.
 
----
-
-## Contents
-
-- [Overview](#overview)
-- [Why this project](#why-this-project)
-- [Architecture](#architecture)
-- [Features](#features)
-- [Technology stack](#technology-stack)
-- [Security and operational notes](#security-and-operational-notes)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Deployment](#deployment)
-- [Usage](#usage)
-- [Testing](#testing)
-- [Project structure](#project-structure)
-- [Documentation](#documentation)
-- [Related project](#related-project)
-- [Author](#author)
-- [License](#license)
-
 ## Overview
 
-This project implements a practical backup and disaster-recovery workflow using Amazon S3, AWS KMS, IAM, STS temporary credentials, Python, and Terraform.
+This project implements a practical backup and restore workflow using Amazon S3, AWS KMS, IAM, STS temporary credentials, Python, and Terraform.
 
 The pipeline creates a compressed archive from a local directory, uploads it to a private S3 bucket with SSE-KMS encryption, and restores it through a separate read and decrypt workflow. SHA-256 verification confirms that the restored data matches the original backup.
 
-The architecture is designed around least privilege and separation of duties:
-
-- The upload role can write backup objects.
-- The restore role can read and decrypt backup objects.
-- AWS STS provides temporary credentials.
-- S3 stores encrypted and versioned backup objects.
-- SHA-256 detects corrupted or incomplete restores.
-
 ## Why this project
 
-Reliable backups are only useful when they are protected, recoverable, and verifiable.
+Reliable backups should be protected, recoverable, and verifiable.
 
-This project explores the engineering decisions required to build a small but secure AWS backup workflow:
+This project demonstrates:
 
-- Protect data at rest with AWS KMS.
-- Separate upload and restore responsibilities.
-- Avoid long-lived operational credentials.
-- Provision infrastructure repeatably with Terraform.
-- Detect data corruption during restore.
-- Keep operational cost low by using managed AWS services.
+- Encrypted object storage with AWS KMS.
+- Separate upload and restore permissions.
+- Temporary credentials through AWS STS.
+- Repeatable infrastructure with Terraform.
+- Integrity verification during restore.
+- Low operational overhead using managed AWS services.
 
 ## Architecture
 
+The pipeline separates backup upload and restore access through dedicated IAM roles.
+
 ![AWS Automated Backup Pipeline architecture](docs/architecture.png)
 
-### Flow summary
-
-#### Upload
-
-```text
-Local directory
-      │
-      ▼
-Python CLI
-Creates tar.gz archive
-      │
-      ▼
-Upload role
-Temporary STS credentials
-      │
-      │ PutObject
-      ▼
-Amazon S3
-SSE-KMS encrypted backup
-      │
-      └──────────────► AWS KMS
-                       Encryption key
-```
-
-#### Restore
-
-```text
-Amazon S3
-Encrypted backup object
-      │
-      │ GetObject + decrypt
-      ▼
-Restore role
-Read and decrypt access
-      │
-      ▼
-Python CLI
-Extracts and verifies SHA-256
-      │
-      ▼
-Restored files
-```
+The editable architecture source is available in [Draw.io format](docs/architecture.drawio).
 
 ## Features
 
 - Compressed `tar.gz` backup archives.
 - Private Amazon S3 backup storage.
-- Server-side encryption with AWS KMS.
+- SSE-KMS encryption at rest.
 - Separate upload and restore IAM roles.
 - Temporary AWS credentials through STS.
-- S3 versioning for backup object protection.
-- Lifecycle configuration for storage management.
-- Public-access blocking.
+- S3 versioning and lifecycle configuration.
+- S3 public-access blocking.
 - SHA-256 integrity verification after restore.
 - Terraform-managed infrastructure.
 - Unit tests for backup and storage operations.
@@ -136,19 +67,17 @@ Restored files
 | AWS IAM | Separates upload and restore permissions |
 | AWS STS | Provides temporary credentials |
 | Terraform | Provisions the AWS infrastructure |
-| SHA-256 | Verifies backup integrity after restore |
+| SHA-256 | Verifies backup integrity |
 
-## Security and operational notes
+## Security
 
 - S3 public access is blocked.
 - Backup objects are encrypted with SSE-KMS.
-- Upload and restore permissions are isolated through separate IAM roles.
-- Temporary STS credentials are preferred over long-lived access keys.
+- Upload and restore permissions are isolated.
+- Temporary STS credentials are preferred over long-lived keys.
 - AWS credentials must never be stored in source files.
-- `terraform.tfvars` must remain local and must not be committed.
-- Terraform state files must be protected and excluded from version control.
-- Restore operations should be considered successful only after SHA-256 verification passes.
-- Integration testing should use a dedicated AWS environment to avoid unexpected charges.
+- Terraform variables and state files must remain outside version control.
+- A restore is successful only after SHA-256 verification passes.
 
 ## Requirements
 
@@ -156,7 +85,6 @@ Restored files
 - Terraform 1.5+
 - AWS CLI
 - An AWS account for deployment or integration testing
-- An AWS identity with permission to provision the required resources
 
 ## Installation
 
@@ -180,29 +108,16 @@ On Windows PowerShell:
 
 ## Deployment
 
-Terraform configuration is located in:
+Terraform configuration is located in `infra/backup/`.
 
-```text
-infra/backup/
-```
-
-The configuration includes:
-
-- S3 backup bucket.
-- SSE-KMS encryption.
-- S3 versioning.
-- Public-access blocking.
-- Lifecycle configuration.
-- Example deployment variables.
-
-Create a local variables file:
+Create the local variables file:
 
 ```bash
 cd infra/backup
 cp terraform.tfvars.example terraform.tfvars
 ```
 
-Review the values before running Terraform:
+Initialize, validate, plan, and deploy:
 
 ```bash
 terraform init
@@ -212,7 +127,7 @@ terraform plan -var-file="terraform.tfvars"
 terraform apply -var-file="terraform.tfvars"
 ```
 
-Review the Terraform plan before applying it.
+Review the plan before applying it.
 
 Never commit:
 
@@ -233,16 +148,14 @@ python -m src.backup --help
 python -m src.s3_storage --help
 ```
 
-The intended operational sequence is:
+The operational workflow is:
 
-1. Select the source directory.
-2. Create the compressed backup archive.
-3. Upload the archive using the upload role.
-4. Store the object key and expected SHA-256 digest.
-5. Restore the backup using the restore role.
-6. Extract the archive.
-7. Verify the SHA-256 digest.
-8. Treat the restore as successful only if verification passes.
+1. Create a compressed backup archive.
+2. Upload the archive using the upload role.
+3. Store the object key and expected SHA-256 digest.
+4. Restore the backup using the restore role.
+5. Extract the archive.
+6. Verify the SHA-256 digest.
 
 See the [restore runbook](docs/restore-runbook.md) for the recovery procedure.
 
@@ -261,15 +174,13 @@ ruff check .
 bandit -r src
 ```
 
-Validate the Terraform configuration:
+Validate Terraform:
 
 ```bash
 cd infra/backup
 terraform fmt -check
 terraform validate
 ```
-
-Integration tests should be isolated from unit tests to avoid unexpected AWS usage and charges.
 
 ## Project structure
 
@@ -278,6 +189,7 @@ Integration tests should be isolated from unit tests to avoid unexpected AWS usa
 ├── docs/
 │   ├── architecture.md
 │   ├── architecture.png
+│   ├── architecture.drawio
 │   ├── cost-model.md
 │   └── restore-runbook.md
 ├── examples/
@@ -308,22 +220,14 @@ Integration tests should be isolated from unit tests to avoid unexpected AWS usa
 
 This project complements my [Cloud Resume Challenge + AI (Bedrock)](https://github.com/tatan461/cloud-resume-ai).
 
-Together, these projects demonstrate:
-
-- Serverless AWS architecture.
-- Infrastructure as Code with Terraform.
-- Secure IAM design.
-- Temporary cloud credentials.
-- Practical cloud operations across application and infrastructure workloads.
+Together, these projects demonstrate secure AWS architecture, Terraform-based infrastructure, IAM design, and practical cloud operations.
 
 ## Author
 
-**Jonathan Angel Gonzalez**
-
+**Jonathan Angel Gonzalez**  
 Junior Cloud Engineer · AWS Certified Specialist
 
 [![GitHub](https://img.shields.io/badge/GitHub-tatan461-181717?logo=github&logoColor=white)](https://github.com/tatan461)
-
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Jonathan%20Angel%20Gonzalez-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jonathan-angel-gonzalez-0543b441a/)
 
 ## License
