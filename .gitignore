@@ -19,3 +19,5 @@ build/
 backup-output/
 restore-output/
 *.tar.gz
+# Windows download metadata
+*:Zone.Identifier
