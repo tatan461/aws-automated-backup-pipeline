@@ -1,59 +1,90 @@
-# AWS Automated Backup Pipeline
+<h1 align="center">AWS Automated Backup Pipeline</h1>
 
-A cost-conscious backup and disaster-recovery pipeline built with Python, Boto3, Amazon S3, AWS KMS, Terraform, and a restore workflow that verifies file integrity with SHA-256.
+<p align="center">
+  Secure, encrypted, and integrity-verified backup and restore workflow built with AWS, Python, and Terraform.
+</p>
 
-> Portfolio project focused on secure object storage, isolated access roles, encrypted backups, infrastructure as code, and repeatable restore operations.
+<p align="center">
+  <a href="https://aws.amazon.com/">
+    <img src="https://img.shields.io/badge/Cloud-AWS-232F3E?style=flat-square&logo=amazonaws&logoColor=FF9900" alt="AWS">
+  </a>
+  <a href="https://www.python.org/">
+    <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+  </a>
+  <a href="https://registry.terraform.io/">
+    <img src="https://img.shields.io/badge/Infrastructure-Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white" alt="Terraform">
+  </a>
+  <a href="https://boto3.amazonaws.com/v1/documentation/api/latest/index.html">
+    <img src="https://img.shields.io/badge/AWS%20SDK-Boto3-FF9900?style=flat-square&logo=amazonaws&logoColor=white" alt="Boto3">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/tatan461/aws-automated-backup-pipeline">
+    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub repository">
+  </a>
+  <a href="https://www.linkedin.com/in/jonathan-angel-gonzalez-0543b441a/">
+    <img src="https://img.shields.io/badge/LinkedIn-Profile-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn profile">
+  </a>
+  <a href="LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-2EA44F?style=flat-square" alt="MIT License">
+  </a>
+</p>
+
+---
 
 ## Overview
 
-This project packages a local source directory into a compressed archive, uploads it to Amazon S3 with server-side KMS encryption, and restores it through a separate read/decrypt workflow.
+This project implements a secure backup and restore workflow using Amazon S3, AWS KMS, IAM roles, STS temporary credentials, Python, and Terraform.
 
-The infrastructure is defined with Terraform under `infra/backup/`.
+The pipeline:
 
-The design intentionally separates upload and restore permissions:
+1. Packages a local directory into a `tar.gz` archive.
+2. Uploads the backup to Amazon S3.
+3. Encrypts the object with AWS KMS.
+4. Restores the object through a separate read/decrypt workflow.
+5. Verifies the restored data using SHA-256.
 
-- The upload role can write backup objects.
-- The restore role can read backup objects and use the required decryption permission.
-- AWS STS is used as the intended source of temporary credentials.
-- SHA-256 verification detects corruption or an incomplete restore.
+The architecture separates upload and restore permissions to follow least-privilege principles.
 
 ## Architecture
 
-![AWS Automated Backup Pipeline architecture](docs/architecture.png)
-
-The main flow is:
+<p align="center">
+  <img src="docs/architecture.png" alt="AWS Automated Backup Pipeline architecture">
+</p>
 
 ```text
 Source directory
-    -> Python CLI creates tar.gz archive
-    -> Upload role obtains temporary credentials
-    -> Amazon S3 stores the object with SSE-KMS
+    -> Python CLI creates archive
+    -> Upload role writes to S3
+    -> S3 encrypts the object with KMS
     -> Restore role reads and decrypts the object
-    -> Python CLI extracts and verifies SHA-256
-    -> Restored output
+    -> Python CLI verifies SHA-256
+    -> Restored files
 ```
 
-See the supporting documentation:
+### Core components
 
-- [Architecture notes](docs/architecture.md)
-- [Restore runbook](docs/restore-runbook.md)
-- [Cost model](docs/cost-model.md)
+| Component | Purpose |
+|---|---|
+| Python CLI | Creates archives and verifies restored data |
+| Amazon S3 | Stores encrypted backup objects |
+| AWS KMS | Provides server-side encryption |
+| AWS IAM | Separates upload and restore permissions |
+| AWS STS | Provides temporary credentials |
+| Terraform | Provisions the AWS infrastructure |
+| SHA-256 | Verifies backup integrity after restore |
 
-## Security model
-
-The project is designed around least privilege and separation of duties.
+## Security
 
 - S3 public access is blocked.
-- Backup objects are encrypted at rest with SSE-KMS.
-- Upload and restore permissions are granted to separate IAM roles.
-- Long-lived AWS access keys must not be committed to the repository.
-- STS temporary credentials are preferred for operational access.
-- Restore verification fails when the calculated SHA-256 does not match the expected digest.
-- Terraform state and local variable files must remain outside version control.
+- Backup objects use SSE-KMS encryption.
+- Upload and restore access are isolated through separate IAM roles.
+- Temporary STS credentials are preferred over long-lived access keys.
+- Terraform variables and state files must remain outside version control.
+- SHA-256 verification detects corrupted or incomplete restores.
 
-This repository contains no production credentials. Configure AWS access through an approved local profile, environment variables, or an external identity provider.
-
-## Repository structure
+## Project structure
 
 ```text
 .
@@ -74,9 +105,9 @@ This repository contains no production credentials. Configure AWS access through
 ├── tests/
 │   ├── test_backup.py
 │   └── test_s3_storage.py
+├── LICENSE
 ├── pyproject.toml
 ├── requirements.txt
-├── LICENSE
 └── README.md
 ```
 
@@ -85,11 +116,7 @@ This repository contains no production credentials. Configure AWS access through
 - Python 3.11+
 - Terraform 1.5+
 - AWS CLI
-- An AWS account for integration testing
-- An AWS identity with permissions to provision the required resources
-- `pytest` for tests
-
-Use a non-root AWS identity for normal development and testing.
+- An AWS account for deployment or integration testing
 
 ## Installation
 
@@ -98,149 +125,46 @@ git clone [https://github.com/tatan461/aws-automated-backup-pipeline.git](https:
 cd aws-automated-backup-pipeline
 
 python -m venv .venv
-source .venv/bin/activate       # Windows PowerShell: .venv\Scripts\Activate.ps1
+source .venv/bin/activate
 
-python -m pip install --upgrade pip
+pip install --upgrade pip
 pip install -r requirements.txt
 pip install -e .
 ```
 
-## AWS configuration
+## Infrastructure deployment
 
-Do not hard-code credentials in source files. Use an AWS profile or environment variables:
-
-```bash
-aws configure --profile backup-lab
-
-export AWS_PROFILE=backup-lab
-export AWS_REGION=eu-west-1
-```
-
-Verify the active identity:
-
-```bash
-aws sts get-caller-identity
-```
-
-Never commit:
-
-- Access keys.
-- Secret keys.
-- `.env` files.
-- `terraform.tfvars`.
-- Terraform state files.
-- Temporary credentials.
-
-## Terraform deployment
-
-Terraform configuration is located under:
-
-```text
-infra/backup/
-```
-
-The current configuration includes:
-
-- Amazon S3 backup bucket.
-- Server-side encryption with AWS KMS.
-- S3 versioning.
-- Public-access blocking.
-- Lifecycle configuration.
-- Terraform variables documented in `terraform.tfvars.example`.
-- Provider lock file committed for reproducible initialization.
-
-Create a local variables file:
+Terraform configuration is located in `infra/backup/`.
 
 ```bash
 cd infra/backup
+
 cp terraform.tfvars.example terraform.tfvars
-```
-
-Review and edit the values before continuing.
-
-Initialize Terraform:
-
-```bash
 terraform init
-```
-
-Format and validate the configuration:
-
-```bash
 terraform fmt -check
 terraform validate
-```
-
-Review the execution plan:
-
-```bash
 terraform plan -var-file="terraform.tfvars"
-```
-
-Apply the infrastructure only after reviewing the plan:
-
-```bash
 terraform apply -var-file="terraform.tfvars"
 ```
 
-When the environment is no longer required, remove the resources carefully:
+Review the Terraform plan before applying it.
 
-```bash
-terraform destroy -var-file="terraform.tfvars"
-```
+Never commit:
 
-Do not commit `terraform.tfvars`, Terraform state files, or `.terraform/` contents, except for the provider lock file.
-
-## Usage
-
-The exact CLI surface is kept in the Python modules and may evolve while the project is being developed. Inspect the available options with:
-
-```bash
-python -m src.backup --help
-python -m src.s3_storage --help
-```
-
-The intended operational sequence is:
-
-1. Select the source directory and backup identifier.
-2. Create the compressed archive.
-3. Obtain temporary credentials for the upload role.
-4. Upload the object to the encrypted S3 bucket.
-5. Record the object key and expected SHA-256 digest.
-6. Obtain temporary credentials for the restore role.
-7. Download and decrypt the backup object.
-8. Extract the archive.
-9. Verify the SHA-256 digest.
-10. Treat the restore as successful only after verification passes.
-
-Use the [restore runbook](docs/restore-runbook.md) for the recovery procedure.
+- `terraform.tfvars`
+- AWS credentials
+- Terraform state files
+- `.env` files
 
 ## Testing
 
-Run the unit tests with:
-
 ```bash
 python -m pytest -q
-```
-
-The test suite covers successful operations and should continue expanding around failure paths, including:
-
-- Archive creation and extraction.
-- S3 upload and download calls.
-- Missing input files.
-- Permission or client errors.
-- Empty or corrupted objects.
-- SHA-256 mismatch during restore.
-- Invalid required configuration.
-
-Recommended quality checks:
-
-```bash
 ruff check .
 bandit -r src
 ```
 
-Terraform checks:
+Terraform validation:
 
 ```bash
 cd infra/backup
@@ -248,50 +172,29 @@ terraform fmt -check
 terraform validate
 ```
 
-Integration tests should be isolated from unit tests to avoid unexpected AWS usage and charges.
+## Documentation
 
-## Cost considerations
+- [Architecture notes](docs/architecture.md)
+- [Restore runbook](docs/restore-runbook.md)
+- [Cost model](docs/cost-model.md)
 
-The design is intended to minimize recurring cost by using object storage and optional lifecycle transitions. Actual cost depends on:
 
-- Backup volume and frequency.
-- S3 storage class.
-- Number and size of restore operations.
-- Data transfer.
-- KMS request volume.
-- Retention and lifecycle configuration.
-- Number of stored object versions.
+## Author
 
-See [docs/cost-model.md](docs/cost-model.md) for the assumptions used by this project.
+<p align="center">
+  <strong>Jonathan Angel Gonzalez</strong><br>
+  Junior Cloud Engineer · AWS Certified Specialist
+</p>
 
-## Limitations
-
-- The Terraform configuration still requires environment-specific validation and production hardening.
-- There is no claim of production readiness.
-- Disaster recovery is not fully automated across AWS accounts or regions.
-- Key rotation, retention policy, alerting, and audit delivery require further hardening.
-- Integration tests should be isolated from unit tests to avoid unexpected AWS charges.
-- The current CLI interface may evolve while the project is being developed.
-- No automated GitHub Actions pipeline has been configured yet.
-
-## Roadmap
-
-- [ ] Review and harden the Terraform configuration for production use.
-- [ ] Add GitHub Actions for tests, linting, Terraform validation, and security checks.
-- [ ] Add negative tests for permissions, corruption, and SHA-256 mismatches.
-- [ ] Add explicit CLI entry points and complete usage examples.
-- [ ] Add structured logging and operational error handling.
-- [ ] Add retention, lifecycle, and restore-point selection policies.
-- [ ] Add optional cross-region or cross-account disaster recovery.
-- [ ] Add CloudWatch metrics and operational alerting.
-- [ ] Create a tagged `v0.1.0` development release after validation.
-
-## Project status
-
-This is an educational and portfolio project. It demonstrates the design of an encrypted S3 backup workflow, infrastructure as code with Terraform, isolated access roles, and the engineering decisions needed for safe restoration.
-
-The project is functional as a development reference, but it still requires additional testing, CI automation, observability, and production hardening before use with critical data.
+<p align="center">
+  <a href="https://github.com/tatan461">
+    <img src="https://img.shields.io/badge/GitHub-@tatan461-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub profile">
+  </a>
+  <a href="https://www.linkedin.com/in/jonathan-angel-gonzalez-0543b441a/">
+    <img src="https://img.shields.io/badge/LinkedIn-Jonathan%20Angel%20Gonzalez-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn profile">
+  </a>
+</p>
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the [MIT License](LICENSE).
