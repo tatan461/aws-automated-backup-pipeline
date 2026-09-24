@@ -10,3 +10,7 @@ variable "bucket_name" {
 variable "kms_key_arn" {
   type = string
 }
+
+variable "trusted_user_arn" {
+  type = string
+}
