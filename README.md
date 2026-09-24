@@ -42,8 +42,6 @@ The pipeline separates backup upload and restore access through dedicated IAM ro
 
 ![AWS Automated Backup Pipeline architecture](docs/architecture.png)
 
-The editable architecture source is available in [Draw.io format](docs/architecture.drawio).
-
 ## Features
 
 - Compressed `tar.gz` backup archives.
