@@ -33,6 +33,21 @@
 
 ---
 
+## Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Technology stack](#technology-stack)
+- [Security](#security)
+- [Project structure](#project-structure)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Infrastructure](#infrastructure)
+- [Testing](#testing)
+- [Documentation](#documentation)
+- [Author](#author)
+- [License](#license)
+
 ## Overview
 
 This project implements a secure backup and restore workflow using Amazon S3, AWS KMS, IAM roles, STS temporary credentials, Python, and Terraform.
@@ -63,7 +78,7 @@ Source directory
     -> Restored files
 ```
 
-### Core components
+## Technology stack
 
 | Component | Purpose |
 |---|---|
@@ -132,9 +147,20 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-## Infrastructure deployment
+## Infrastructure
 
 Terraform configuration is located in `infra/backup/`.
+
+The configuration provisions and manages:
+
+- An Amazon S3 backup bucket.
+- Server-side encryption with AWS KMS.
+- S3 versioning.
+- Public-access blocking.
+- Lifecycle configuration.
+- Example deployment variables.
+
+The example variables file is provided for reference. Create a local `terraform.tfvars` file and review all values before deployment.
 
 ```bash
 cd infra/backup
@@ -158,8 +184,15 @@ Never commit:
 
 ## Testing
 
+Run the unit tests with:
+
 ```bash
 python -m pytest -q
+```
+
+Optional quality checks:
+
+```bash
 ruff check .
 bandit -r src
 ```
@@ -172,12 +205,13 @@ terraform fmt -check
 terraform validate
 ```
 
+Integration tests should be isolated from unit tests to avoid unexpected AWS usage and charges.
+
 ## Documentation
 
 - [Architecture notes](docs/architecture.md)
 - [Restore runbook](docs/restore-runbook.md)
 - [Cost model](docs/cost-model.md)
-
 
 ## Author
 
