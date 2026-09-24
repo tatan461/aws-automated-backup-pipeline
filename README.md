@@ -213,12 +213,6 @@ terraform validate
 - [Restore runbook](docs/restore-runbook.md)
 - [Cost model](docs/cost-model.md)
 
-## Related project
-
-This project complements my [Cloud Resume Challenge + AI (Bedrock)](https://github.com/tatan461/cloud-resume-ai).
-
-Together, these projects demonstrate secure AWS architecture, Terraform-based infrastructure, IAM design, and practical cloud operations.
-
 ## Author
 
 **Jonathan Angel Gonzalez**  
