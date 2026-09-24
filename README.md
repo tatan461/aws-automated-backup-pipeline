@@ -1,103 +1,242 @@
-<h1 align="center">AWS Automated Backup Pipeline</h1>
+<div align="center">
 
-<p align="center">
-  Secure, encrypted, and integrity-verified backup and restore workflow built with AWS, Python, and Terraform.
-</p>
+# AWS Automated Backup Pipeline
 
-<p align="center">
-  <a href="https://aws.amazon.com/">
-    <img src="https://img.shields.io/badge/Cloud-AWS-232F3E?style=flat-square&logo=amazonaws&logoColor=FF9900" alt="AWS">
-  </a>
-  <a href="https://www.python.org/">
-    <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
-  </a>
-  <a href="https://registry.terraform.io/">
-    <img src="https://img.shields.io/badge/Infrastructure-Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white" alt="Terraform">
-  </a>
-  <a href="https://boto3.amazonaws.com/v1/documentation/api/latest/index.html">
-    <img src="https://img.shields.io/badge/AWS%20SDK-Boto3-FF9900?style=flat-square&logo=amazonaws&logoColor=white" alt="Boto3">
-  </a>
-</p>
+**A secure, encrypted, and integrity-verified backup and restore workflow built with AWS, Python, and Terraform.**
 
-<p align="center">
-  <a href="https://github.com/tatan461/aws-automated-backup-pipeline">
-    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub repository">
-  </a>
-  <a href="https://www.linkedin.com/in/jonathan-angel-gonzalez-0543b441a/">
-    <img src="https://img.shields.io/badge/LinkedIn-Profile-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn profile">
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-2EA44F?style=flat-square" alt="MIT License">
-  </a>
-</p>
+[Architecture](#architecture) · [Features](#features) · [Deployment](#deployment) · [Testing](#testing)
+
+![AWS](https://img.shields.io/badge/Cloud-AWS-232F3E?logo=amazonaws&logoColor=white)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)
+![Python](https://img.shields.io/badge/Runtime-Python-3776AB?logo=python&logoColor=white)
+![Boto3](https://img.shields.io/badge/AWS%20SDK-Boto3-FF9900?logo=amazonaws&logoColor=white)
+![Security](https://img.shields.io/badge/Encryption-SSE--KMS-DC3545)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+
+</div>
+
+> A Terraform-managed AWS backup workflow that packages local data, stores it in encrypted Amazon S3, and verifies integrity after restoration.
 
 ---
 
-## Contents
-
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Technology stack](#technology-stack)
-- [Security](#security)
-- [Project structure](#project-structure)
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Infrastructure](#infrastructure)
-- [Testing](#testing)
-- [Documentation](#documentation)
-- [Author](#author)
-- [License](#license)
-
 ## Overview
 
-This project implements a secure backup and restore workflow using Amazon S3, AWS KMS, IAM roles, STS temporary credentials, Python, and Terraform.
+This project implements a practical backup and disaster-recovery workflow using Amazon S3, AWS KMS, IAM, STS temporary credentials, Python, and Terraform.
 
-The pipeline:
+The pipeline creates a compressed archive from a local directory, uploads it to a private S3 bucket with SSE-KMS encryption, and restores it through a separate read and decrypt workflow. SHA-256 verification confirms that the restored data matches the original backup.
 
-1. Packages a local directory into a `tar.gz` archive.
-2. Uploads the backup to Amazon S3.
-3. Encrypts the object with AWS KMS.
-4. Restores the object through a separate read/decrypt workflow.
-5. Verifies the restored data using SHA-256.
+The architecture is designed around least privilege and separation of duties:
 
-The architecture separates upload and restore permissions to follow least-privilege principles.
+- The upload role can write backup objects.
+- The restore role can read and decrypt backup objects.
+- AWS STS provides temporary credentials.
+- S3 stores encrypted and versioned backup objects.
+- SHA-256 detects corrupted or incomplete restores.
+
+## Why this project
+
+Reliable backups are only useful when they are protected, recoverable, and verifiable.
+
+This project explores the engineering decisions required to build a small but secure AWS backup workflow:
+
+- Protect data at rest with AWS KMS.
+- Separate upload and restore responsibilities.
+- Avoid long-lived operational credentials.
+- Provision infrastructure repeatably with Terraform.
+- Detect data corruption during restore.
+- Keep operational cost low by using managed AWS services.
 
 ## Architecture
 
-<p align="center">
-  <img src="docs/architecture.png" alt="AWS Automated Backup Pipeline architecture">
-</p>
+![AWS Automated Backup Pipeline architecture](docs/architecture.png)
+
+### Flow summary
 
 ```text
-Source directory
-    -> Python CLI creates archive
-    -> Upload role writes to S3
-    -> S3 encrypts the object with KMS
-    -> Restore role reads and decrypts the object
-    -> Python CLI verifies SHA-256
-    -> Restored files
+Local source directory
+        |
+        v
+Python CLI creates tar.gz archive
+        |
+        v
+Upload role obtains temporary STS credentials
+        |
+        v
+Amazon S3 stores the object with SSE-KMS
+        |
+        v
+Restore role reads and decrypts the object
+        |
+        v
+Python CLI extracts and verifies SHA-256
+        |
+        v
+Restored files
 ```
 
-## Technology stack
+## Features
+
+- Compressed `tar.gz` backup archives.
+- Private Amazon S3 backup storage.
+- Server-side encryption with AWS KMS.
+- Separate upload and restore IAM roles.
+- Temporary AWS credentials through STS.
+- S3 versioning for backup object protection.
+- Lifecycle configuration for storage management.
+- Public-access blocking.
+- SHA-256 integrity verification after restore.
+- Terraform-managed infrastructure.
+- Unit tests for backup and storage operations.
+
+## Main components
 
 | Component | Purpose |
 |---|---|
 | Python CLI | Creates archives and verifies restored data |
 | Amazon S3 | Stores encrypted backup objects |
-| AWS KMS | Provides server-side encryption |
+| AWS KMS | Provides encryption at rest |
 | AWS IAM | Separates upload and restore permissions |
 | AWS STS | Provides temporary credentials |
 | Terraform | Provisions the AWS infrastructure |
 | SHA-256 | Verifies backup integrity after restore |
 
-## Security
+## Security and operational notes
 
 - S3 public access is blocked.
-- Backup objects use SSE-KMS encryption.
-- Upload and restore access are isolated through separate IAM roles.
+- Backup objects are encrypted with SSE-KMS.
+- Upload and restore permissions are isolated through separate IAM roles.
 - Temporary STS credentials are preferred over long-lived access keys.
-- Terraform variables and state files must remain outside version control.
-- SHA-256 verification detects corrupted or incomplete restores.
+- AWS credentials must never be stored in source files.
+- `terraform.tfvars` must remain local and must not be committed.
+- Terraform state files must be protected and excluded from version control.
+- Restore operations should be considered successful only after SHA-256 verification passes.
+- Integration testing should use a dedicated AWS environment to avoid unexpected charges.
+
+## Requirements
+
+- Python 3.11+
+- Terraform 1.5+
+- AWS CLI
+- An AWS account for deployment or integration testing
+- An AWS identity with permission to provision the required resources
+
+## Installation
+
+```bash
+git clone [https://github.com/tatan461/aws-automated-backup-pipeline.git](https://github.com/tatan461/aws-automated-backup-pipeline.git)
+cd aws-automated-backup-pipeline
+
+python -m venv .venv
+source .venv/bin/activate
+
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -e .
+```
+
+On Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+## Deployment
+
+Terraform configuration is located in:
+
+```text
+infra/backup/
+```
+
+The configuration includes:
+
+- S3 backup bucket.
+- SSE-KMS encryption.
+- S3 versioning.
+- Public-access blocking.
+- Lifecycle configuration.
+- Example deployment variables.
+
+Create a local variables file:
+
+```bash
+cd infra/backup
+cp terraform.tfvars.example terraform.tfvars
+```
+
+Review the values before running Terraform:
+
+```bash
+terraform init
+terraform fmt -check
+terraform validate
+terraform plan -var-file="terraform.tfvars"
+terraform apply -var-file="terraform.tfvars"
+```
+
+Never commit:
+
+```text
+terraform.tfvars
+*.tfstate
+*.tfstate.*
+.env
+AWS credentials
+```
+
+## Usage
+
+Inspect the available command options:
+
+```bash
+python -m src.backup --help
+python -m src.s3_storage --help
+```
+
+The intended operational sequence is:
+
+1. Select the source directory.
+2. Create the compressed backup archive.
+3. Upload the archive using the upload role.
+4. Store the object key and expected SHA-256 digest.
+5. Restore the backup using the restore role.
+6. Extract the archive.
+7. Verify the SHA-256 digest.
+8. Treat the restore as successful only if verification passes.
+
+See the [restore runbook](docs/restore-runbook.md) for the recovery procedure.
+
+## Testing
+
+Run the unit tests:
+
+```bash
+python -m pytest -q
+```
+
+Optional quality checks:
+
+```bash
+ruff check .
+bandit -r src
+```
+
+Validate the Terraform configuration:
+
+```bash
+cd infra/backup
+terraform fmt -check
+terraform validate
+```
+
+The test suite covers backup creation and S3 storage operations. Recommended additional test cases include:
+
+- Missing input files.
+- S3 permission errors.
+- Empty or corrupted objects.
+- SHA-256 mismatches.
+- Invalid configuration.
+- Failed download or restore operations.
 
 ## Project structure
 
@@ -126,108 +265,33 @@ Source directory
 └── README.md
 ```
 
-## Requirements
-
-- Python 3.11+
-- Terraform 1.5+
-- AWS CLI
-- An AWS account for deployment or integration testing
-
-## Installation
-
-```bash
-git clone [https://github.com/tatan461/aws-automated-backup-pipeline.git](https://github.com/tatan461/aws-automated-backup-pipeline.git)
-cd aws-automated-backup-pipeline
-
-python -m venv .venv
-source .venv/bin/activate
-
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install -e .
-```
-
-## Infrastructure
-
-Terraform configuration is located in `infra/backup/`.
-
-The configuration provisions and manages:
-
-- An Amazon S3 backup bucket.
-- Server-side encryption with AWS KMS.
-- S3 versioning.
-- Public-access blocking.
-- Lifecycle configuration.
-- Example deployment variables.
-
-The example variables file is provided for reference. Create a local `terraform.tfvars` file and review all values before deployment.
-
-```bash
-cd infra/backup
-
-cp terraform.tfvars.example terraform.tfvars
-terraform init
-terraform fmt -check
-terraform validate
-terraform plan -var-file="terraform.tfvars"
-terraform apply -var-file="terraform.tfvars"
-```
-
-Review the Terraform plan before applying it.
-
-Never commit:
-
-- `terraform.tfvars`
-- AWS credentials
-- Terraform state files
-- `.env` files
-
-## Testing
-
-Run the unit tests with:
-
-```bash
-python -m pytest -q
-```
-
-Optional quality checks:
-
-```bash
-ruff check .
-bandit -r src
-```
-
-Terraform validation:
-
-```bash
-cd infra/backup
-terraform fmt -check
-terraform validate
-```
-
-Integration tests should be isolated from unit tests to avoid unexpected AWS usage and charges.
-
 ## Documentation
 
 - [Architecture notes](docs/architecture.md)
 - [Restore runbook](docs/restore-runbook.md)
 - [Cost model](docs/cost-model.md)
 
+## Related project
+
+This project complements my [Cloud Resume Challenge + AI (Bedrock)](https://github.com/tatan461/cloud-resume-ai).
+
+Together, these projects demonstrate:
+
+- Serverless AWS architecture.
+- Infrastructure as Code with Terraform.
+- Secure IAM design.
+- Temporary cloud credentials.
+- Practical cloud operations across application and infrastructure workloads.
+
 ## Author
 
-<p align="center">
-  <strong>Jonathan Angel Gonzalez</strong><br>
-  Junior Cloud Engineer · AWS Certified Specialist
-</p>
+**Jonathan Angel Gonzalez**
 
-<p align="center">
-  <a href="https://github.com/tatan461">
-    <img src="https://img.shields.io/badge/GitHub-@tatan461-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub profile">
-  </a>
-  <a href="https://www.linkedin.com/in/jonathan-angel-gonzalez-0543b441a/">
-    <img src="https://img.shields.io/badge/LinkedIn-Jonathan%20Angel%20Gonzalez-0A66C2?style=flat-square&logo=linkedin&logoColor=white" alt="LinkedIn profile">
-  </a>
-</p>
+Junior Cloud Engineer · AWS Certified Specialist
+
+[![GitHub](https://img.shields.io/badge/GitHub-tatan461-181717?logo=github&logoColor=white)](https://github.com/tatan461)
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Jonathan%20Angel%20Gonzalez-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jonathan-angel-gonzalez-0543b441a/)
 
 ## License
 
